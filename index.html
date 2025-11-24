@@ -44,17 +44,17 @@
 
     .date {
         position: absolute;
-        top: 50mm;   /* moved lower */
-        left: 40mm;  /* moved right */
+        top: 35mm;   
+        left: 40mm;  
         font-size: 16px;
     }
 
     .text-box {
         position: absolute;
-        top: 55mm;
+        top: 60mm;  /* start of text */
         right: 25mm;
         left: 25mm;
-        bottom: 25mm;
+        bottom: 60mm; /* bottom limit */
         white-space: pre-wrap;
         font-size: 20px;
         line-height: 1.6;
@@ -78,42 +78,66 @@
 </div>
 
 <script>
-async function generatePDF() {
-    const text = document.getElementById("inputText").value;
-    document.getElementById("outputText").innerText = text;
+const lineHeight = 10; // approx height per line in mm
+const topPadding = 60;  // top in mm
+const bottomPadding = 60; // bottom in mm
+const pageHeight = 297;  // A4 height in mm
+const usableHeight = pageHeight - topPadding - bottomPadding;
 
-    const today = new Date().toLocaleDateString('ar-EG');
-    document.getElementById("dateArea").innerText = today;
+function splitTextIntoPages(text) {
+    const lines = text.split(/\n/);
+    const maxLinesPerPage = Math.floor(usableHeight / lineHeight);
+    const pages = [];
 
+    for (let i = 0; i < lines.length; i += maxLinesPerPage) {
+        pages.push(lines.slice(i, i + maxLinesPerPage).join("\n"));
+    }
+
+    return pages;
+}
+
+async function renderPageToPDF(text, pdf) {
     const pageElement = document.getElementById("page");
-    pageElement.style.display = "block";
+    const dateArea = document.getElementById("dateArea");
+    const outputText = document.getElementById("outputText");
 
+    outputText.innerText = text;
+    const today = new Date().toLocaleDateString('ar-EG');
+    dateArea.innerText = today;
+
+    pageElement.style.display = "block";
     const canvas = await html2canvas(pageElement, { scale: 3 });
     const imgData = canvas.toDataURL("image/png");
 
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "mm", "a4");
+    if(!pdf) pdf = new jsPDF("p", "mm", "a4");
     pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
+
+    return pdf;
+}
+
+async function generatePDF() {
+    const text = document.getElementById("inputText").value;
+    const pages = splitTextIntoPages(text);
+
+    let pdf;
+    for(let i = 0; i < pages.length; i++) {
+        pdf = await renderPageToPDF(pages[i], pdf);
+        if(i < pages.length - 1) pdf.addPage();
+    }
 
     pdf.save("تصريح دخول.pdf");
 }
 
 async function sharePDF() {
     const text = document.getElementById("inputText").value;
-    document.getElementById("outputText").innerText = text;
+    const pages = splitTextIntoPages(text);
 
-    const today = new Date().toLocaleDateString('ar-EG');
-    document.getElementById("dateArea").innerText = today;
-
-    const pageElement = document.getElementById("page");
-    pageElement.style.display = "block";
-
-    const canvas = await html2canvas(pageElement, { scale: 3 });
-    const imgData = canvas.toDataURL("image/png");
-
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF("p", "mm", "a4");
-    pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
+    let pdf;
+    for(let i = 0; i < pages.length; i++) {
+        pdf = await renderPageToPDF(pages[i], pdf);
+        if(i < pages.length - 1) pdf.addPage();
+    }
 
     const fileName = "تصريح دخول.pdf";
     const pdfBlob = pdf.output("blob");
