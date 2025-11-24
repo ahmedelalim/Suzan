@@ -25,24 +25,27 @@
     button {
         padding: 12px 20px;
         font-size: 18px;
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         cursor: pointer;
     }
 
     .page {
         width: 210mm;
         height: 297mm;
-        background-image: url("background.jpg"); 
-        background-size: cover;
+        background-image: url("background.jpg");
+        background-size: 100% 100%; /* fit entire page */
+        background-repeat: no-repeat;
+        background-position: center;
         position: relative;
         padding: 25mm;
         box-sizing: border-box;
+        display: none;
     }
 
     .date {
         position: absolute;
-        top: 15mm;
-        left: 15mm;
+        top: 25mm;   /* moved lower */
+        left: 40mm;  /* moved right */
         font-size: 16px;
     }
 
@@ -62,21 +65,20 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 </head>
-
 <body>
 
 <textarea id="inputText" placeholder="اكتب النص هنا..."></textarea>
 
 <button onclick="generatePDF()">تحميل صفحة PDF</button>
+<button onclick="sharePDF()">شارك PDF</button>
 
-<div class="page" id="page" style="display:none;">
+<div class="page" id="page">
     <div class="date" id="dateArea"></div>
     <div class="text-box" id="outputText"></div>
 </div>
 
 <script>
 async function generatePDF() {
-
     const text = document.getElementById("inputText").value;
     document.getElementById("outputText").innerText = text;
 
@@ -86,21 +88,34 @@ async function generatePDF() {
     const pageElement = document.getElementById("page");
     pageElement.style.display = "block";
 
-    const canvas = await html2canvas(pageElement, {
-        scale: 3
-    });
+    const canvas = await html2canvas(pageElement, { scale: 3 });
     const imgData = canvas.toDataURL("image/png");
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF("p", "mm", "a4");
+    pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
 
-    const pdfWidth = 210;
-    const pdfHeight = 297;
+    pdf.save("تصريح دخول.pdf");
+}
 
-    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+async function sharePDF() {
+    const text = document.getElementById("inputText").value;
+    document.getElementById("outputText").innerText = text;
+
+    const today = new Date().toLocaleDateString('ar-EG');
+    document.getElementById("dateArea").innerText = today;
+
+    const pageElement = document.getElementById("page");
+    pageElement.style.display = "block";
+
+    const canvas = await html2canvas(pageElement, { scale: 3 });
+    const imgData = canvas.toDataURL("image/png");
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("p", "mm", "a4");
+    pdf.addImage(imgData, "PNG", 0, 0, 210, 297);
 
     const fileName = "تصريح دخول.pdf";
-
     const pdfBlob = pdf.output("blob");
 
     if (navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], fileName, { type: "application/pdf" })] })) {
@@ -111,6 +126,7 @@ async function generatePDF() {
             files: [file]
         });
     } else {
+        alert("متصفحك لا يدعم المشاركة المباشرة، سيتم تنزيل الملف بدلاً من ذلك.");
         pdf.save(fileName);
     }
 }
